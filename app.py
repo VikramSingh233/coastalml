@@ -15,6 +15,9 @@ model = joblib.load("backend/knn_model.pkl")
 scaler = joblib.load("backend/scaler.pkl")
 
 # ------------------ Helper Function ------------------ #
+import requests
+from datetime import datetime, timedelta
+
 def get_merged_api_data(lat, lon):
     now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
     one_hour_later = now + timedelta(hours=1)
@@ -28,8 +31,7 @@ def get_merged_api_data(lat, lon):
         f"&hourly=wave_height,wave_direction,wave_period,sea_level_height_msl,"
         f"sea_surface_temperature,ocean_current_direction,ocean_current_velocity,"
         f"swell_wave_direction,swell_wave_period"
-       f"&start={start_hour}&end={end_hour}"
-
+        f"&start={start_hour}&end={end_hour}"
     )
     marine_resp = requests.get(marine_url).json()
 
@@ -43,16 +45,33 @@ def get_merged_api_data(lat, lon):
     )
     weather_resp = requests.get(weather_url).json()
 
-    merged_data = {}
-    for key in marine_resp['hourly']:
-        merged_data[key] = marine_resp['hourly'][key][0]
     if "hourly" not in marine_resp or "hourly" not in weather_resp:
         raise ValueError(f"API Error: {marine_resp} | {weather_resp}")
 
-    for key in weather_resp['hourly']:
-        merged_data[key] = weather_resp['hourly'][key][0]
+    merged_data = {}
+
+    # Marine data
+    marine_keys = [
+        "wave_height", "wave_direction", "wave_period", "sea_level_height_msl",
+        "sea_surface_temperature", "ocean_current_direction", "ocean_current_velocity",
+        "swell_wave_direction", "swell_wave_period"
+    ]
+    for key in marine_keys:
+        if key in marine_resp["hourly"]:
+            merged_data[key] = marine_resp["hourly"][key]
+
+    # Weather data
+    weather_keys = [
+        "temperature_2m", "relative_humidity_2m", "precipitation", "weather_code",
+        "pressure_msl", "surface_pressure", "wind_speed_10m",
+        "wind_direction_10m", "wind_direction_100m"
+    ]
+    for key in weather_keys:
+        if key in weather_resp["hourly"]:
+            merged_data[key] = weather_resp["hourly"][key]
 
     return merged_data
+
 
 # ------------------ Web Frontend ------------------ #
 @app.route("/", methods=["GET", "POST"])
