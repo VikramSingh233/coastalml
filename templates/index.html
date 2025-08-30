@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Coastal Alert ML</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: auto; }
+        input, button { padding: 8px; margin: 5px 0; width: 100%; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Coastal Alert Prediction</h1>
+
+    <h2>Manual Input</h2>
+    <form method="POST">
+        <label>Latitude:</label>
+        <input type="text" name="latitude" required>
+        <label>Longitude:</label>
+        <input type="text" name="longitude" required>
+        <button type="submit">Predict</button>
+    </form>
+
+    {% if prediction %}
+    <h3>Prediction Result:</h3>
+    <pre>{{ prediction | tojson(indent=2) }}</pre>
+    {% endif %}
+
+    <h2>Upload JSON File</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".json" required>
+        <button type="submit">Predict from File</button>
+    </form>
+
+    {% if batch_predictions %}
+    <h3>Batch Predictions:</h3>
+    <pre>{{ batch_predictions | tojson(indent=2) }}</pre>
+    {% endif %}
+</div>
+</body>
+</html>
