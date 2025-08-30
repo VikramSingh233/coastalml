@@ -28,7 +28,8 @@ def get_merged_api_data(lat, lon):
         f"&hourly=wave_height,wave_direction,wave_period,sea_level_height_msl,"
         f"sea_surface_temperature,ocean_current_direction,ocean_current_velocity,"
         f"swell_wave_direction,swell_wave_period"
-        f"&start_hour={start_hour}&end_hour={end_hour}"
+       f"&start={start_hour}&end={end_hour}"
+
     )
     marine_resp = requests.get(marine_url).json()
 
@@ -45,6 +46,9 @@ def get_merged_api_data(lat, lon):
     merged_data = {}
     for key in marine_resp['hourly']:
         merged_data[key] = marine_resp['hourly'][key][0]
+    if "hourly" not in marine_resp or "hourly" not in weather_resp:
+        raise ValueError(f"API Error: {marine_resp} | {weather_resp}")
+
     for key in weather_resp['hourly']:
         merged_data[key] = weather_resp['hourly'][key][0]
 
