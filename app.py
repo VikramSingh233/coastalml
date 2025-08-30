@@ -5,14 +5,17 @@ import requests
 from datetime import datetime, timedelta
 import json
 import os
+import numpy as np
+from sklearn.impute import SimpleImputer
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = "uploads"
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Load model and scaler
+# Load model, scaler, and create imputer
 model = joblib.load("backend/knn_model.pkl")
 scaler = joblib.load("backend/scaler.pkl")
+imputer = SimpleImputer(strategy='mean')  # Use mean imputation for missing values
 
 # Define feature name mapping (without units -> with units)
 FEATURE_MAPPING = {
@@ -72,9 +75,14 @@ def get_merged_api_data(lat, lon):
     # Extract first hour's data and map feature names
     for key, mapped_key in FEATURE_MAPPING.items():
         if key in marine_resp["hourly"]:
-            merged_data[mapped_key] = marine_resp["hourly"][key][0]
+            value = marine_resp["hourly"][key][0] if marine_resp["hourly"][key] else 0
+            merged_data[mapped_key] = value
         elif key in weather_resp["hourly"]:
-            merged_data[mapped_key] = weather_resp["hourly"][key][0]
+            value = weather_resp["hourly"][key][0] if weather_resp["hourly"][key] else 0
+            merged_data[mapped_key] = value
+        else:
+            # If the feature is not in either response, set a default value
+            merged_data[mapped_key] = 0
 
     return merged_data
 
@@ -94,7 +102,11 @@ def home():
                 df = pd.DataFrame([payload])
                 # Ensure column order matches training
                 df = df.reindex(columns=FEATURE_MAPPING.values(), fill_value=0)
-                scaled = scaler.transform(df)
+                
+                # Handle missing values
+                df_imputed = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+                
+                scaled = scaler.transform(df_imputed)
                 pred = model.predict(scaled)[0]
                 payload["prediction"] = str(pred)
                 prediction = payload
@@ -117,7 +129,11 @@ def home():
                             payload = get_merged_api_data(lat, lon)
                             df = pd.DataFrame([payload])
                             df = df.reindex(columns=FEATURE_MAPPING.values(), fill_value=0)
-                            scaled = scaler.transform(df)
+                            
+                            # Handle missing values
+                            df_imputed = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+                            
+                            scaled = scaler.transform(df_imputed)
                             pred = model.predict(scaled)[0]
                             payload["prediction"] = str(pred)
                             batch_predictions.append(payload)
@@ -126,7 +142,11 @@ def home():
                         payload = get_merged_api_data(lat, lon)
                         df = pd.DataFrame([payload])
                         df = df.reindex(columns=FEATURE_MAPPING.values(), fill_value=0)
-                        scaled = scaler.transform(df)
+                        
+                        # Handle missing values
+                        df_imputed = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+                        
+                        scaled = scaler.transform(df_imputed)
                         pred = model.predict(scaled)[0]
                         payload["prediction"] = str(pred)
                         batch_predictions.append(payload)
@@ -148,7 +168,11 @@ def api_predict():
         payload = get_merged_api_data(latitude, longitude)
         df = pd.DataFrame([payload])
         df = df.reindex(columns=FEATURE_MAPPING.values(), fill_value=0)
-        scaled = scaler.transform(df)
+        
+        # Handle missing values
+        df_imputed = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+        
+        scaled = scaler.transform(df_imputed)
         pred = model.predict(scaled)[0]
         payload["prediction"] = str(pred)
         return jsonify(payload)
