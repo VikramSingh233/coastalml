@@ -7,8 +7,11 @@ import json
 import os
 import numpy as np
 from sklearn.impute import SimpleImputer
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
+
 app.config['UPLOAD_FOLDER'] = "uploads"
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
