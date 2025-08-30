@@ -14,10 +14,31 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 model = joblib.load("backend/knn_model.pkl")
 scaler = joblib.load("backend/scaler.pkl")
 
-# ------------------ Helper Function ------------------ #
-import requests
-from datetime import datetime, timedelta
+# ------------------ Feature Mapping ------------------ #
+# Map API keys to training feature names
+FEATURE_MAPPING = {
+    "wave_height": "wave_height (m)",
+    "wave_direction": "wave_direction (°)",
+    "wave_period": "wave_period (s)",
+    "sea_level_height_msl": "sea_level_height_msl (m)",
+    "sea_surface_temperature": "sea_surface_temperature (°C)",
+    "ocean_current_direction": "ocean_current_direction (°)",
+    "ocean_current_velocity": "ocean_current_velocity (km/h)",
+    "swell_wave_direction": "swell_wave_direction (°)",
+    "swell_wave_period": "swell_wave_period (s)",
+    "temperature_2m": "temperature_2m (°C)",
+    "relative_humidity_2m": "relative_humidity_2m (%)",
+    "precipitation": "precipitation (mm)",
+    "weather_code": "weather_code",
+    "pressure_msl": "pressure_msl (hPa)",
+    "surface_pressure": "surface_pressure (hPa)",
+    "wind_speed_10m": "wind_speed_10m (km/h)",
+    "wind_direction_10m": "wind_direction_10m (°)",
+    "wind_direction_100m": "wind_direction_100m (°)"
+}
 
+
+# ------------------ Helper Function ------------------ #
 def get_merged_api_data(lat, lon):
     now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
     one_hour_later = now + timedelta(hours=1)
@@ -58,7 +79,7 @@ def get_merged_api_data(lat, lon):
     ]
     for key in marine_keys:
         if key in marine_resp["hourly"]:
-            merged_data[key] = marine_resp["hourly"][key]
+            merged_data[key] = marine_resp["hourly"][key][0]  # take first hour
 
     # Weather data
     weather_keys = [
@@ -68,9 +89,15 @@ def get_merged_api_data(lat, lon):
     ]
     for key in weather_keys:
         if key in weather_resp["hourly"]:
-            merged_data[key] = weather_resp["hourly"][key]
+            merged_data[key] = weather_resp["hourly"][key][0]
 
-    return merged_data
+    # Rename keys to match training features
+    renamed = {}
+    for api_key, value in merged_data.items():
+        if api_key in FEATURE_MAPPING:
+            renamed[FEATURE_MAPPING[api_key]] = value
+
+    return renamed
 
 
 # ------------------ Web Frontend ------------------ #
@@ -126,6 +153,7 @@ def home():
     
     return render_template("index.html", prediction=prediction, batch_predictions=batch_predictions)
 
+
 # ------------------ API Endpoint ------------------ #
 @app.route("/api/predict_from_coords", methods=["GET"])
 def api_predict():
@@ -144,6 +172,7 @@ def api_predict():
         return jsonify(payload)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # ------------------ Run Flask ------------------ #
 if __name__ == "__main__":
